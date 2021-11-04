@@ -74,29 +74,12 @@ namespace FastGithub.DomainResolve
             await TomlUtil.SetlogLevelAsync(tomlPath, 6, cancellationToken);
             await TomlUtil.SetEdnsClientSubnetAsync(tomlPath, cancellationToken);
 
-            foreach (var process in Process.GetProcessesByName(NAME))
-            {
-                process.Kill();
-                process.WaitForExit();
-            }
-
-            if (OperatingSystem.IsWindows())
-            {
-                StartDnscryptProxy("-service uninstall")?.WaitForExit();
-                StartDnscryptProxy("-service install")?.WaitForExit();
-                StartDnscryptProxy("-service start")?.WaitForExit();
-                this.process = Process.GetProcessesByName(NAME).FirstOrDefault(item => item.SessionId == 0);
-            }
-            else
-            {
-                this.process = StartDnscryptProxy(string.Empty);
-            }
-
+            this.process = StartDnscryptProxy(string.Empty);
             if (this.process != null)
             {
                 this.LocalEndPoint = localEndPoint;
                 this.process.EnableRaisingEvents = true;
-                this.process.Exited += Process_Exited;
+                this.process.Exited += (s, e) => this.LocalEndPoint = null;
             }
         }
 
@@ -107,11 +90,6 @@ namespace FastGithub.DomainResolve
         {
             try
             {
-                if (OperatingSystem.IsWindows())
-                {
-                    StartDnscryptProxy("-service stop")?.WaitForExit();
-                    StartDnscryptProxy("-service uninstall")?.WaitForExit();
-                }
                 if (this.process != null && this.process.HasExited == false)
                 {
                     this.process.Kill();
@@ -158,15 +136,6 @@ namespace FastGithub.DomainResolve
             throw new FastGithubException("当前无可用的端口");
         }
 
-        /// <summary>
-        /// 进程退出时
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void Process_Exited(object? sender, EventArgs e)
-        {
-            this.LocalEndPoint = null;
-        }
 
         /// <summary>
         /// 启动DnscryptProxy进程
